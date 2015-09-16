@@ -46,7 +46,7 @@ s.source_files = 'ZCAddressBook/*.{h,m,c}'
 
 
   # s.framework  = "SomeFramework"
-  #s.frameworks = "Foundation", "UIKit"
+  s.frameworks = "Foundation", "UIKit", "AddressBook"
   #s.dependency     'yajl-objc', '~> 0.2.27'
 
 

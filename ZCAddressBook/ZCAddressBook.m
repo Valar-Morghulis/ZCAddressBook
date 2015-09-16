@@ -9,18 +9,13 @@
 #import "ZCAddressBook.h"
 #import "pinyin.h"
 #import <AddressBook/AddressBook.h>
-static ZCAddressBook *instance;
+
+static ZCAddressBook *instance = 0;
 @implementation ZCAddressBook
--(id)init
-{
-    if (self=[super init]) {
-        
-    }
-    
-    return self;
-}
+
 // 单列模式
-+ (ZCAddressBook*)shareControl{
++ (ZCAddressBook*)instance
+{
     @synchronized(self) {
         if(!instance) {
             instance = [[ZCAddressBook alloc] init];
@@ -125,8 +120,8 @@ static ZCAddressBook *instance;
     return ABHelperNotExistSpecificContact;
 }
 #pragma mark 获取通讯录内容
--(NSMutableDictionary*)getPersonInfo{
-    
+-(NSMutableDictionary*)getContacts
+{
     self.dataArray = [NSMutableArray arrayWithCapacity:0];
     self.dataArrayDic = [NSMutableArray arrayWithCapacity:0];
     //取得本地通信录名柄
@@ -140,7 +135,6 @@ static ZCAddressBook *instance;
     }else{
         addressBook = ABAddressBookCreate();
     }
-    
     
     
     //取得本地所有联系人记录
@@ -251,12 +245,11 @@ static ZCAddressBook *instance;
     return lowerStr;
     
 }
-#pragma mark 排序
--(NSArray*)sortMethod
+
+-(NSArray*)sortedContacts
 {
-    
-    
-    NSArray*array=  [self.dataArray sortedArrayUsingFunction:cmp context:NULL];
+    if(!self.dataArray) [self getContacts];
+    NSArray*array =  [self.dataArray sortedArrayUsingFunction:cmp context:NULL];
     return array;
     
 }
@@ -270,143 +263,5 @@ NSInteger cmp(NSString * a, NSString* b, void * p)
         return  NSOrderedAscending;//(-1)
 }
 
-#pragma mark 使用系统方式进行发送短信，但是短信内容无法规定
-+(void)sendMessage:(NSString*)phoneNum{
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:  [NSString stringWithFormat:@"sms:%@",phoneNum]]];
-    
-}
-
--(id)initWithTarget:(id)target MessageNameArray:(NSArray*)array Message:(NSString*)str Block:(void (^)(int))a
-{
-    if (self=[super init]) {
-        self.target=target;
-        self.MessageBlock=a;
-        [self showViewMessageNameArray:array Message:str];
-    }
-    return self;
-}
--(void)showViewMessageNameArray:(NSArray*)array Message:(NSString*)str{
-    
-    //判断当前设备是否可以发送信息
-    if ([MFMessageComposeViewController canSendText]) {
-        
-        MFMessageComposeViewController *messageViewController = [[MFMessageComposeViewController alloc] init];
-        
-        //委托到本类
-        messageViewController.messageComposeDelegate = self;
-        
-        //设置收件人, 需要一个数组, 可以群发短信
-        messageViewController.recipients = array;
-        
-        //短信的内容
-        messageViewController.body =str;
-        
-        //打开短信视图控制器
-        [self.target presentViewController:messageViewController animated:YES completion:nil];
-        
-        [messageViewController release];
-    }
-    
-    
-}
-#pragma mark MFMessageComposeViewController 代理方法
-- (void)messageComposeViewController:(MFMessageComposeViewController *)controller didFinishWithResult:(MessageComposeResult)result
-{
-    //0 取消  1是成功 2是失败
-    NSLog(@"~~~%d",result);
-    self.MessageBlock(result);
-    [controller dismissViewControllerAnimated:YES completion:nil];
-    
-    
-}
--(id)initWithTarget:(id)target PhoneView:(void (^)(BOOL, NSDictionary *))a
-{
-    if (self=[super init]) {
-        self.target=target;
-        self.PhoneBlock=a;
-        ABPeoplePickerNavigationController *peoplePicker = [[ABPeoplePickerNavigationController alloc] init];
-        peoplePicker.peoplePickerDelegate = self;
-        [self.target presentViewController:peoplePicker animated:YES completion:nil];
-        [peoplePicker release];
-        
-    }
-    
-    return self;
-}
--(BOOL)peoplePickerNavigationController:(ABPeoplePickerNavigationController *)peoplePicker shouldContinueAfterSelectingPerson:(ABRecordRef)person
-{
-    
-    ABMutableMultiValueRef phoneMulti = ABRecordCopyValue(person, kABPersonPhoneProperty);
-    //获得选中Vcard相应信息
-    /*
-     ABMutableMultiValueRef address=ABRecordCopyValue(person, kABPersonAddressProperty);
-     ABMutableMultiValueRef birthday=ABRecordCopyValue(person, kABPersonBirthdayProperty);
-     ABMutableMultiValueRef creationDate=ABRecordCopyValue(person, kABPersonCreationDateProperty);
-     ABMutableMultiValueRef date=ABRecordCopyValue(person, kABPersonDateProperty);
-     ABMutableMultiValueRef department=ABRecordCopyValue(person, kABPersonDepartmentProperty);
-     ABMutableMultiValueRef email=ABRecordCopyValue(person, kABPersonEmailProperty);
-     ABMutableMultiValueRef firstNamePhonetic=ABRecordCopyValue(person, kABPersonFirstNamePhoneticProperty);
-     
-     ABMutableMultiValueRef instantMessage=ABRecordCopyValue(person, kABPersonInstantMessageProperty);
-     ABMutableMultiValueRef jobTitle=ABRecordCopyValue(person, kABPersonJobTitleProperty);
-     ABMutableMultiValueRef kind=ABRecordCopyValue(person, kABPersonKindProperty);
-     ABMutableMultiValueRef lastNamePhonetic=ABRecordCopyValue(person, kABPersonLastNamePhoneticProperty);
-     ABMutableMultiValueRef middleNamePhonetic=ABRecordCopyValue(person, kABPersonMiddleNamePhoneticProperty);
-     ABMutableMultiValueRef middleName=ABRecordCopyValue(person, kABPersonMiddleNameProperty);
-     ABMutableMultiValueRef modificationDate=ABRecordCopyValue(person, kABPersonModificationDateProperty);
-     ABMutableMultiValueRef nickname=ABRecordCopyValue(person, kABPersonNicknameProperty);
-     ABMutableMultiValueRef note=ABRecordCopyValue(person, kABPersonNoteProperty);
-     ABMutableMultiValueRef organization=ABRecordCopyValue(person, kABPersonOrganizationProperty);
-     ABMutableMultiValueRef phone=ABRecordCopyValue(person, kABPersonPhoneProperty);
-     ABMutableMultiValueRef prefix=ABRecordCopyValue(person, kABPersonPrefixProperty);
-     ABMutableMultiValueRef relatedNames=ABRecordCopyValue(person, kABPersonRelatedNamesProperty);
-     ABMutableMultiValueRef socialProfile=ABRecordCopyValue(person, kABPersonSocialProfileProperty);
-     ABMutableMultiValueRef personSuffix=ABRecordCopyValue(person, kABPersonSuffixProperty);
-     ABMutableMultiValueRef _URL=ABRecordCopyValue(person, kABPersonURLProperty);
-     */
-    
-    NSString* firstName=(NSString*)ABRecordCopyValue(person, kABPersonFirstNameProperty);
-    if (firstName==nil) {
-        firstName = @" ";
-    }
-    NSString* lastName=(NSString*)ABRecordCopyValue(person, kABPersonLastNameProperty);
-    if (lastName==nil) {
-        lastName = @" ";
-    }
-    NSMutableArray *phones = [NSMutableArray arrayWithCapacity:0];
-    
-    for (int i = 0; i < ABMultiValueGetCount(phoneMulti); i++) {
-        
-        NSString *aPhone = [(NSString*)ABMultiValueCopyValueAtIndex(phoneMulti, i) autorelease];
-        
-        [phones addObject:aPhone];
-        
-    }
-    NSDictionary*dic=@{@"firstName": firstName,@"lastName":lastName,@"phones":phones};
-    
-    self.PhoneBlock(YES,dic);
-    
-    [self.target dismissViewControllerAnimated:YES completion:nil];
-    
-    return NO;
-}
--(BOOL)peoplePickerNavigationController:(ABPeoplePickerNavigationController *)peoplePicker shouldContinueAfterSelectingPerson:(ABRecordRef)person property:(ABPropertyID)property identifier:(ABMultiValueIdentifier)identifier
-{
-    
-    self.PhoneBlock(NO,nil);
-    [self.target dismissViewControllerAnimated:YES completion:nil];
-    
-    
-    
-    return NO;
-    
-}
-
--(void)peoplePickerNavigationControllerDidCancel:(ABPeoplePickerNavigationController *)peoplePicker
-{
-    self.PhoneBlock(NO,nil);
-    [self.target dismissViewControllerAnimated:YES completion:nil];
-    
-}
 
 @end

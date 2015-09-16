@@ -66,12 +66,15 @@
 
 #import <Foundation/Foundation.h>
 //调用系统的控件
-#import <MessageUI/MessageUI.h>
-#import <AddressBookUI/AddressBookUI.h>
+#import <UIKit/UIKit.h>
+
 enum {
-    ABHelperCanNotConncetToAddressBook,   ABHelperExistSpecificContact,    ABHelperNotExistSpecificContact
+    ABHelperCanNotConncetToAddressBook,
+    ABHelperExistSpecificContact,
+    ABHelperNotExistSpecificContact
 };typedef NSUInteger ABHelperCheckExistResultType;
-@interface ZCAddressBook : NSObject<MFMessageComposeViewControllerDelegate,ABPeoplePickerNavigationControllerDelegate>
+
+@interface ZCAddressBook : NSObject
 {
 
 }
@@ -79,8 +82,8 @@ enum {
 @property(nonatomic,retain)NSMutableArray*dataArray;
 //数组里面保存每个获取Vcard（名片）
 @property(nonatomic,retain)NSMutableArray*dataArrayDic;
-#pragma mark 获得单例
-+ (ZCAddressBook*)shareControl;
+
++ (ZCAddressBook*)instance;
 
 #pragma  mark  添加联系人
 - (BOOL)addContactName:(NSString*)name phoneNum:(NSString*)num withLabel:(NSString*)label;
@@ -88,23 +91,10 @@ enum {
 #pragma mark 查找通讯录中是否有这个联系人
 - (ABHelperCheckExistResultType)existPhone:(NSString*)phoneNum;
 
-#pragma mark 获取Vcard
--(NSMutableDictionary*)getPersonInfo;
+#pragma mark 获取通讯录内容
+-(NSMutableDictionary*)getContacts;
 
-#pragma mark Vcard序列
+#pragma mark 获取排序后的通讯录内容
+-(NSArray*)sortedContacts;
 
--(NSArray*)sortMethod;
-
-
-#pragma -------------使用系统方式发送短信，或者获得联系人 以下方法不能够使用单例进行，有UI操作
-
-@property(nonatomic,assign) id target;
-@property(nonatomic,copy)void(^MessageBlock)(int);
-@property(nonatomic,copy)void(^PhoneBlock)(BOOL,NSDictionary*);
-#pragma mark 发送短信界面 调用系统控件 需要真机才能显示
--(id)initWithTarget:(id)target MessageNameArray:(NSArray*)array Message:(NSString*)str Block:(void (^)(int))a;
-#pragma mark-------- 使用系统方式进行发送短信，但是短信内容无法规定,会跳出程序 phoneNum传入数字
-+(void)sendMessage:(NSString*)phoneNum;
-#pragma mark 联系人界面 调用的系统控件
--(id)initWithTarget:(id)target PhoneView:(void (^)(BOOL, NSDictionary*))a;
 @end
