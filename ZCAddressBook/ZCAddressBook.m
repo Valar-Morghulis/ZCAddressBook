@@ -262,6 +262,24 @@ NSInteger cmp(NSString * a, NSString* b, void * p)
     }else
         return  NSOrderedAscending;//(-1)
 }
-
+-(NSDictionary*)sortedContactsWithKeys
+{
+    NSArray * sorted = [self sortedContacts];
+    NSMutableDictionary * res = [NSMutableDictionary dictionary];
+    for(int i = 0;i < [sorted count];i++)
+    {
+        NSString * str = [sorted objectAtIndex:i];
+        char c = pinyinFirstLetter([str characterAtIndex:0]);
+        NSString * key = [NSString stringWithFormat:@"%c",c];
+        NSMutableArray * array = [res objectForKey:key];
+        if(!array)
+        {
+            array = [NSMutableArray array];
+            [res setObject:array forKey:key];
+        }
+        [array addObject:str];
+    }
+    return res;
+}
 
 @end

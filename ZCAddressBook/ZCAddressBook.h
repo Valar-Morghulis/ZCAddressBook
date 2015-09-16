@@ -96,5 +96,7 @@ enum {
 
 #pragma mark 获取排序后的通讯录内容
 -(NSArray*)sortedContacts;
+#pragma mark 获取排序后的通讯录内容
+-(NSDictionary*)sortedContactsWithKeys;
 
 @end
