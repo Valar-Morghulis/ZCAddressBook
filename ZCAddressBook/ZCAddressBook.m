@@ -257,10 +257,23 @@ static ZCAddressBook *instance = 0;
 //NSInteger cmp(id, id, void *);
 NSInteger cmp(NSString * a, NSString* b, void * p)
 {
-    if([a compare:b] == 1){
-        return NSOrderedDescending;//(1)
-    }else
-        return  NSOrderedAscending;//(-1)
+    int res = NSOrderedAscending;
+    if(a && [a length] > 0)
+    {
+        char ac = pinyinFirstLetter([a characterAtIndex:0]);
+        res = NSOrderedDescending;
+        if(b && [b length] > 0)
+        {
+            char bc = pinyinFirstLetter([b characterAtIndex:0]);
+            //
+            if(ac > bc)
+            {
+                res = NSOrderedDescending;//(1)
+            }else
+                res = NSOrderedAscending;//(-1)
+        }
+    }
+    return res;
 }
 -(NSDictionary*)sortedContactsWithKeys
 {
@@ -269,7 +282,9 @@ NSInteger cmp(NSString * a, NSString* b, void * p)
     for(int i = 0;i < [sorted count];i++)
     {
         NSString * str = [sorted objectAtIndex:i];
-        char c = pinyinFirstLetter([str characterAtIndex:0]);
+        char c = ' ';
+        if([str length] > 0)
+            c = pinyinFirstLetter([str characterAtIndex:0]);
         NSString * key = [NSString stringWithFormat:@"%c",c];
         NSMutableArray * array = [res objectForKey:key];
         if(!array)
