@@ -352,9 +352,10 @@ static ZCAddressBook *instance = 0;
     return array;
     
 }
-
-NSInteger cmp(NSString * a, NSString* b, void * p)
+NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
 {
+    NSString * a = [first objectForKey:@"name"];
+    NSString * b = [second objectForKey:@"name"];
     int res = NSOrderedAscending;
     if(a && [a length] > 0)
     {
@@ -373,13 +374,14 @@ NSInteger cmp(NSString * a, NSString* b, void * p)
     }
     return res;
 }
+
 -(NSDictionary*)sortedContactsWithKeys:(NSArray *)searchKeys
 {
     NSArray * sorted = [self sortedContacts:searchKeys];
     NSMutableDictionary * res = [NSMutableDictionary dictionary];
     for(int i = 0;i < [sorted count];i++)
     {
-        NSString * str = [sorted objectAtIndex:i];
+        NSString * str = [[sorted objectAtIndex:i] objectForKey:@"name"];
         char c = ' ';
         if([str length] > 0)
             c = pinyinFirstLetter([str characterAtIndex:0]);
