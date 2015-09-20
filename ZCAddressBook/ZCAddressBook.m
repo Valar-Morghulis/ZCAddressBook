@@ -1,14 +1,10 @@
 //
 //  ZCAddressBook.m
-//  通讯录Demo
-//
-//  Created by ZhangCheng on 14-4-19.
-//  Copyright (c) 2014年 zhangcheng. All rights reserved.
+
 //
 
 #import "ZCAddressBook.h"
-#import "pinyin.h"
-#import <AddressBook/AddressBook.h>
+
 
 static ZCAddressBook *instance = 0;
 @implementation ZCAddressBook
