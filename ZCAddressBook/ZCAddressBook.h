@@ -78,11 +78,8 @@ enum {
 {
 
 }
-//保存排序好的数组index
+//数据
 @property(nonatomic,retain)NSMutableArray*dataArray;
-//数组里面保存每个获取Vcard（名片）
-@property(nonatomic,retain)NSMutableArray*dataArrayDic;
-
 + (ZCAddressBook*)instance;
 
 #pragma  mark  添加联系人
@@ -92,11 +89,11 @@ enum {
 - (ABHelperCheckExistResultType)existPhone:(NSString*)phoneNum;
 
 #pragma mark 获取通讯录内容
--(NSMutableDictionary*)getContacts;
+-(NSMutableArray*)getContacts:(NSArray *)searchKeys;//searchKeys 要检索的内容，如kABPersonFirstNameProperty等
 
 #pragma mark 获取排序后的通讯录内容
--(NSArray*)sortedContacts;
+-(NSArray*)sortedContacts:(NSArray *)searchKeys;//searchKeys 要检索的内容
 #pragma mark 获取排序后的通讯录内容
--(NSDictionary*)sortedContactsWithKeys;
+-(NSDictionary*)sortedContactsWithKeys:(NSArray *)searchKeys;//searchKeys 要检索的内容
 
 @end

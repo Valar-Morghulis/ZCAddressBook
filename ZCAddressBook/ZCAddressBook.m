@@ -120,141 +120,239 @@ static ZCAddressBook *instance = 0;
     return ABHelperNotExistSpecificContact;
 }
 #pragma mark 获取通讯录内容
--(NSMutableDictionary*)getContacts
+-(NSMutableArray*)getContacts:(NSArray *)searchKeys
 {
     self.dataArray = [NSMutableArray arrayWithCapacity:0];
-    self.dataArrayDic = [NSMutableArray arrayWithCapacity:0];
     //取得本地通信录名柄
     ABAddressBookRef addressBook ;
     
-    if ([[UIDevice currentDevice].systemVersion floatValue] >= 6.0)    {
+    if ([[UIDevice currentDevice].systemVersion floatValue] >= 6.0)
+    {
         addressBook = ABAddressBookCreateWithOptions(NULL, NULL);
         //等待同意后向下执行
-        dispatch_semaphore_t sema = dispatch_semaphore_create(0);        ABAddressBookRequestAccessWithCompletion(addressBook, ^(bool granted, CFErrorRef error)                                                 {                                                     dispatch_semaphore_signal(sema);                                                 });
-        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);         dispatch_release(sema);
-    }else{
+        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+        ABAddressBookRequestAccessWithCompletion(addressBook, ^(bool granted, CFErrorRef error)
+                                                 {
+                                                     dispatch_semaphore_signal(sema);
+        });
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+        dispatch_release(sema);
+    }
+    else
+    {
         addressBook = ABAddressBookCreate();
     }
     
-    
     //取得本地所有联系人记录
     CFArrayRef results = ABAddressBookCopyArrayOfAllPeople(addressBook);
-    //    NSLog(@"-----%d",(int)CFArrayGetCount(results));
-    //    NSLog(@"in %s %d",__func__,__LINE__);
     for(int i = 0; i < CFArrayGetCount(results); i++)
     {
         NSMutableDictionary *dicInfoLocal = [NSMutableDictionary dictionaryWithCapacity:0];
         ABRecordRef person = CFArrayGetValueAtIndex(results, i);
-        //读取firstname
-        NSString *first = (NSString*)ABRecordCopyValue(person, kABPersonFirstNameProperty);
-        if (first==nil) {
-            first = @" ";
-        }
-        [dicInfoLocal setObject:first forKey:@"first"];
+        //姓名
+        NSString * name = @"";
+        //读取firstName
+        NSString *firtname = (NSString*)ABRecordCopyValue(person, kABPersonFirstNameProperty);
+        if(firtname != nil)
+            name = [NSString stringWithFormat:@"%@%@",firtname,name];
+        //读取middlename
+        NSString *middlename = (NSString*)ABRecordCopyValue(person, kABPersonMiddleNameProperty);
+        if(middlename != nil)
+            name = [NSString stringWithFormat:@"%@%@",middlename,name];
+        //读取lastname
+        NSString *lastname = (NSString*)ABRecordCopyValue(person, kABPersonLastNameProperty);
+        if(lastname != nil)
+             name = [NSString stringWithFormat:@"%@%@",middlename,name];
+       
+        //
+        [dicInfoLocal setObject:name forKey:@"name"];//名字，用于排序等
+        for(int i = 0;i < [searchKeys count];i++)
+        {
+            ABPropertyID pid = [[searchKeys objectAtIndex:i] intValue];
+            NSString * key = [NSString stringWithFormat:@"%d",pid];
+            id value = 0;
+            if(pid == kABPersonBirthdayProperty)
+            {
+                value = (NSDate*)ABRecordCopyValue(person, kABPersonBirthdayProperty);
+            }
+            else if (pid == kABPersonKindProperty)
+            {
+                value = (NSNumber *)ABRecordCopyValue(person, kABPersonKindProperty);
+            }
+            else if (pid == kABPersonEmailProperty)
+            {
+                value = [self getEmails:person];
+            }
+            else if (pid == kABPersonAddressProperty)
+            {
+                value = [self getAddresses:person];
+            }
+            else if (pid == kABPersonDateProperty)
+            {
+                value = [self getDates:person];
+            }
+            else if (pid == kABPersonInstantMessageProperty)
+            {
+                value = [self getIMs:person];
+            }
+            else if (pid == kABPersonPhoneProperty)
+            {
+                value = [self getPhones:person];
+            }
+            else if (pid == kABPersonURLProperty)
+            {
+                value = [self getURLs:person];
+            }
+            else
+            {
+                value = (NSString *)ABRecordCopyValue(person, pid);
+            }
+            if(value)
+            {
+                [dicInfoLocal setObject:value forKey:key];
+            }
+        }//for
         
-        NSString *last = (NSString *)ABRecordCopyValue(person, kABPersonLastNameProperty);
-        if (last == nil) {
-            last = @" ";
-        }
-        [dicInfoLocal setObject:last forKey:@"last"];
-        
-        
-        
-        
-        ABMultiValueRef tmlphone =  ABRecordCopyValue(person, kABPersonPhoneProperty);
-        NSString* telphone = (NSString*)ABMultiValueCopyValueAtIndex(tmlphone, 0);
-        if (telphone == nil) {
-            telphone = @" ";
-        }
-        [dicInfoLocal setObject:telphone forKey:@"telphone"];
-        CFRelease(tmlphone);
-        /*
-         //获取的联系人单一属性:Email(s)
-         
-         ABMultiValueRef tmpEmails = ABRecordCopyValue(person, kABPersonEmailProperty);
-         
-         NSString *email = (NSString*)ABMultiValueCopyValueAtIndex(tmpEmails, 0);
-         [dicInfoLocal setObject:email forKey:@"email"];
-         
-         CFRelease(tmpEmails);
-         if (email) {
-         email = @"";
-         }
-         [dicInfoLocal setObject:email forKey:@"email"];
-         */
-        //修改
-        /*
-         if (first&&![first isEqualToString:@""]) {
-         //不全的 多信息 多信息
-         [self.dataArraydic addObject:dicInfoLocal];
-         } */
-        
-        if ([first isEqualToString:@" "] == NO || [last isEqualToString:@" "]) {
-            [self.dataArrayDic addObject:dicInfoLocal];
-            // [self.dataArray addObject: [NSString stringWithFormat:@"%@ %@",first,last]];
-        }
-        
+        //读取照片
+        NSData *image = (NSData*)ABPersonCopyImageData(person);
+        [dicInfoLocal setObject:[UIImage imageWithData:image] forKey:@"image"];
+        [self.dataArray addObject:dicInfoLocal];//
     }
     CFRelease(results);//new
     CFRelease(addressBook);//new
-    
-    //排序
-    //建立一个字典，字典保存key是A-Z  值是数组
-    NSMutableDictionary*index=[NSMutableDictionary dictionaryWithCapacity:0];
-    
-    for (NSDictionary*dic in self.dataArrayDic) {
-        
-        NSString* str=[dic objectForKey:@"first"];
-        //获得中文拼音首字母，如果是英文或数字则#
-        
-        NSLog(@"%@",dic);
-        NSString *strFirLetter = [NSString stringWithFormat:@"%c",pinyinFirstLetter([str characterAtIndex:0])];
-        
-        if ([strFirLetter isEqualToString:@"#"]) {
-            //转换为小写
-            
-            strFirLetter= [self upperStr:[str substringToIndex:1]];
-        }
-        if ([[index allKeys]containsObject:strFirLetter]) {
-            //判断index字典中，是否有这个key如果有，取出值进行追加操作
-            [[index objectForKey:strFirLetter] addObject:dic];
-        }else{
-            NSMutableArray*tempArray=[NSMutableArray arrayWithCapacity:0];
-            [tempArray addObject:dic];
-            [index setObject:tempArray forKey:strFirLetter];
-        }
-        
-    }
-    
-    [self.dataArray addObjectsFromArray:[index allKeys]];
-    
-    return index;
-}
-#pragma  mark 字母转换大小写--6.0
--(NSString*)upperStr:(NSString*)str{
-    
-    //    //全部转换为大写
-    //    NSString *upperStr = [str uppercaseStringWithLocale:[NSLocale currentLocale]];
-    //    NSLog(@"upperStr: %@", upperStr);
-    //首字母转换大写
-    //    NSString *capStr = [str capitalizedStringWithLocale:[NSLocale currentLocale]];
-    //    NSLog(@"capStr: %@", capStr);
-    //    // 全部转换为小写
-    NSString *lowerStr = [str lowercaseStringWithLocale:[NSLocale currentLocale]];
-    //    NSLog(@"lowerStr: %@", lowerStr);
-    return lowerStr;
-    
+    return self.dataArray;
 }
 
--(NSArray*)sortedContacts
+-(NSMutableArray *)getEmails:(ABRecordRef)person
 {
-    if(!self.dataArray) [self getContacts];
+    //获取email多值
+    NSMutableArray * array = [NSMutableArray array];
+    ABMultiValueRef email = ABRecordCopyValue(person, kABPersonEmailProperty);
+    int emailcount = ABMultiValueGetCount(email);
+    for (int x = 0; x < emailcount; x++)
+    {
+        //获取email Label
+        NSString* emailLabel = (NSString*)ABAddressBookCopyLocalizedLabel(ABMultiValueCopyLabelAtIndex(email, x));
+        //获取email值
+        NSString* emailContent = (NSString*)ABMultiValueCopyValueAtIndex(email, x);
+        
+        NSMutableDictionary * dic = [NSMutableDictionary dictionary];
+        if(emailLabel) dic[@"label"] = emailLabel;
+        if(emailContent) dic[@"content"] = emailContent;
+        [array addObject:dic];
+    }
+    return array;
+}
+-(NSMutableArray *)getAddresses:(ABRecordRef)person
+{
+    //读取地址多值
+    NSMutableArray * array = [NSMutableArray array];
+    ABMultiValueRef address = ABRecordCopyValue(person, kABPersonAddressProperty);
+    int count = ABMultiValueGetCount(address);
+    for(int j = 0; j < count; j++)
+    {
+        //获取地址Label
+        NSString* addressLabel = (NSString*)ABMultiValueCopyLabelAtIndex(address, j);
+        //获取該label下的地址6属性
+        NSDictionary* personaddress =(NSDictionary*) ABMultiValueCopyValueAtIndex(address, j);
+        
+        NSMutableDictionary * dic = [NSMutableDictionary dictionary];
+        if(addressLabel) dic[@"label"] = addressLabel;
+        if(personaddress) dic[@"content"] = personaddress;
+        [array addObject:dic];
+    }
+    return array;
+
+}
+
+-(NSMutableArray *)getDates:(ABRecordRef)person
+{
+    //获取dates多值
+     NSMutableArray * array = [NSMutableArray array];
+    ABMultiValueRef dates = ABRecordCopyValue(person, kABPersonDateProperty);
+    int datescount = ABMultiValueGetCount(dates);
+    for (int y = 0; y < datescount; y++)
+    {
+        //获取dates Label
+        NSString* datesLabel = (NSString*)ABAddressBookCopyLocalizedLabel(ABMultiValueCopyLabelAtIndex(dates, y));
+        //获取dates值
+        NSString* datesContent = (NSString*)ABMultiValueCopyValueAtIndex(dates, y);
+        NSMutableDictionary * dic = [NSMutableDictionary dictionary];
+        if(datesLabel) dic[@"label"] = datesLabel;
+        if(datesContent) dic[@"content"] = datesContent;
+        [array addObject:dic];
+    }
+    return array;
+
+}
+
+-(NSMutableArray *)getIMs:(ABRecordRef)person
+{
+    //获取IM多值
+    NSMutableArray * array = [NSMutableArray array];
+    ABMultiValueRef instantMessage = ABRecordCopyValue(person, kABPersonInstantMessageProperty);
+    for (int l = 1; l < ABMultiValueGetCount(instantMessage); l++)
+    {
+        //获取IM Label
+        NSString* instantMessageLabel = (NSString*)ABMultiValueCopyLabelAtIndex(instantMessage, l);
+        //获取該label下的2属性
+        NSDictionary* instantMessageContent =(NSDictionary*) ABMultiValueCopyValueAtIndex(instantMessage, l);
+        NSMutableDictionary * dic = [NSMutableDictionary dictionary];
+        if(instantMessageLabel) dic[@"label"] = instantMessageLabel;
+        if(instantMessageContent) dic[@"content"] = instantMessageContent;
+        [array addObject:dic];
+    }
+    return array;
+
+}
+-(NSMutableArray *)getPhones:(ABRecordRef)person
+{
+    //读取电话多值
+    NSMutableArray * array = [NSMutableArray array];
+    ABMultiValueRef phone = ABRecordCopyValue(person, kABPersonPhoneProperty);
+    for (int k = 0; k<ABMultiValueGetCount(phone); k++)
+    {
+        //获取电话Label
+        NSString * personPhoneLabel = (NSString*)ABAddressBookCopyLocalizedLabel(ABMultiValueCopyLabelAtIndex(phone, k));
+        //获取該Label下的电话值
+        NSString * personPhone = (NSString*)ABMultiValueCopyValueAtIndex(phone, k);
+        NSMutableDictionary * dic = [NSMutableDictionary dictionary];
+        if(personPhoneLabel) dic[@"label"] = personPhoneLabel;
+        if(personPhone) dic[@"content"] = personPhone;
+        [array addObject:dic];
+    }
+    return array;
+}
+
+-(NSMutableArray *)getURLs:(ABRecordRef)person
+{
+    //获取URL多值
+     NSMutableArray * array = [NSMutableArray array];
+    ABMultiValueRef url = ABRecordCopyValue(person, kABPersonURLProperty);
+    for (int m = 0; m < ABMultiValueGetCount(url); m++)
+    {
+        //获取电话Label
+        NSString * urlLabel = (NSString*)ABAddressBookCopyLocalizedLabel(ABMultiValueCopyLabelAtIndex(url, m));
+        //获取該Label下的电话值
+        NSString * urlContent = (NSString*)ABMultiValueCopyValueAtIndex(url,m);
+        NSMutableDictionary * dic = [NSMutableDictionary dictionary];
+        if(urlLabel) dic[@"label"] = urlLabel;
+        if(urlContent) dic[@"content"] = urlContent;
+        [array addObject:dic];
+    }
+    return array;
+
+}
+
+
+-(NSArray*)sortedContacts:(NSArray *)searchKeys
+{
+    if(!self.dataArray) [self getContacts:searchKeys];
     NSArray*array =  [self.dataArray sortedArrayUsingFunction:cmp context:NULL];
     return array;
     
 }
-//构建数组排序方法SEL
-//NSInteger cmp(id, id, void *);
+
 NSInteger cmp(NSString * a, NSString* b, void * p)
 {
     int res = NSOrderedAscending;
@@ -275,9 +373,9 @@ NSInteger cmp(NSString * a, NSString* b, void * p)
     }
     return res;
 }
--(NSDictionary*)sortedContactsWithKeys
+-(NSDictionary*)sortedContactsWithKeys:(NSArray *)searchKeys
 {
-    NSArray * sorted = [self sortedContacts];
+    NSArray * sorted = [self sortedContacts:searchKeys];
     NSMutableDictionary * res = [NSMutableDictionary dictionary];
     for(int i = 0;i < [sorted count];i++)
     {
