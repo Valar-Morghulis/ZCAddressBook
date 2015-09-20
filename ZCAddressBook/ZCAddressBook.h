@@ -17,9 +17,8 @@ enum
 };typedef NSUInteger ABHelperCheckExistResultType;
 
 @interface ZCAddressBook : NSObject
-{
 
-}
++(void)initialize;//初始化
 //数据
 @property(nonatomic,retain)NSMutableArray*dataArray;
 + (ZCAddressBook*)instance;
@@ -31,11 +30,14 @@ enum
 - (ABHelperCheckExistResultType)existPhone:(NSString*)phoneNum;
 
 #pragma mark 获取通讯录内容
+//
+//注意：为了使 searchKeys 有效，必须先 用 [ZCAddressBook initialize] 初始化所有ABPropertyID
+
 -(NSMutableArray*)getContacts:(NSArray *)searchKeys;//searchKeys 要检索的内容，如kABPersonFirstNameProperty等
 
 #pragma mark 获取排序后的通讯录内容
--(NSArray*)sortedContacts:(NSArray *)searchKeys;//searchKeys 要检索的内容
+-(NSArray*)getSortedContacts:(NSArray *)searchKeys;//searchKeys 要检索的内容
 #pragma mark 获取排序后的通讯录内容
--(NSDictionary*)sortedContactsWithKeys:(NSArray *)searchKeys;//searchKeys 要检索的内容
+-(NSDictionary*)getSortedContactsWithKeys:(NSArray *)searchKeys;//searchKeys 要检索的内容
 
 @end

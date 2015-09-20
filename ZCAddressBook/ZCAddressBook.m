@@ -19,6 +19,13 @@ static ZCAddressBook *instance = 0;
     }
     return instance;
 }
++(void)initialize
+{
+    static dispatch_once_t t;
+    dispatch_once(&t, ^(void){
+        CFRelease(ABPersonCreate());//
+    });
+}
 #pragma  mark 添加联系人
 // 添加联系人（联系人名称、号码、号码备注标签）
 - (BOOL)addContactName:(NSString*)name phoneNum:(NSString*)num withLabel:(NSString*)label{
@@ -57,7 +64,9 @@ static ZCAddressBook *instance = 0;
     }else{
         // 如果添加记录成功，保存更新到通讯录数据库中
         success = ABAddressBookSave(addressBook, &error);
-        return success ? YES : NO;
+        CFRelease(record);
+        CFRelease(addressBook);
+        return success;
     }
 }
 #pragma  mark 指定号码是否已经存在
@@ -158,9 +167,8 @@ static ZCAddressBook *instance = 0;
         //读取lastname
         NSString *lastname = (NSString*)ABRecordCopyValue(person, kABPersonLastNameProperty);
         if(lastname != nil)
-             name = [NSString stringWithFormat:@"%@%@",middlename,name];
+             name = [NSString stringWithFormat:@"%@%@",lastname,name];
        
-        //
         [dicInfoLocal setObject:name forKey:@"name"];//名字，用于排序等
         for(int i = 0;i < [searchKeys count];i++)
         {
@@ -183,7 +191,7 @@ static ZCAddressBook *instance = 0;
             {
                 value = [self getAddresses:person];
             }
-            else if (pid == kABPersonDateProperty)
+            else if (pid == kABPersonDateProperty || pid == kABPersonCreationDateProperty || pid == kABPersonModificationDateProperty)
             {
                 value = [self getDates:person];
             }
@@ -199,6 +207,10 @@ static ZCAddressBook *instance = 0;
             {
                 value = [self getURLs:person];
             }
+            else if (pid == kABPersonRelatedNamesProperty)
+            {
+                value = [self getRelatedNames:person];
+            }
             else
             {
                 value = (NSString *)ABRecordCopyValue(person, pid);
@@ -211,7 +223,10 @@ static ZCAddressBook *instance = 0;
         
         //读取照片
         NSData *image = (NSData*)ABPersonCopyImageData(person);
-        [dicInfoLocal setObject:image forKey:@"image"];
+        if(image)
+        {
+            [dicInfoLocal setObject:image forKey:@"image"];
+        }
         [self.dataArray addObject:dicInfoLocal];//
     }
     CFRelease(results);//new
@@ -319,7 +334,21 @@ static ZCAddressBook *instance = 0;
     }
     return array;
 }
-
+-(NSMutableArray *)getRelatedNames:(ABRecordRef)person
+{
+    NSMutableArray * array = [NSMutableArray array];
+    ABMultiValueRef phone = ABRecordCopyValue(person, kABPersonRelatedNamesProperty);
+    for (int k = 0; k<ABMultiValueGetCount(phone); k++)
+    {
+        NSString * label = (NSString*)ABAddressBookCopyLocalizedLabel(ABMultiValueCopyLabelAtIndex(phone, k));
+        NSString * content = (NSString*)ABMultiValueCopyValueAtIndex(phone, k);
+        NSMutableDictionary * dic = [NSMutableDictionary dictionary];
+        if(label) dic[@"label"] = label;
+        if(content) dic[@"content"] = content;
+        [array addObject:dic];
+    }
+    return array;
+}
 -(NSMutableArray *)getURLs:(ABRecordRef)person
 {
     //获取URL多值
@@ -341,7 +370,7 @@ static ZCAddressBook *instance = 0;
 }
 
 
--(NSArray*)sortedContacts:(NSArray *)searchKeys
+-(NSArray*)getSortedContacts:(NSArray *)searchKeys
 {
     if(!self.dataArray) [self getContacts:searchKeys];
     NSArray*array =  [self.dataArray sortedArrayUsingFunction:cmp context:NULL];
@@ -371,13 +400,14 @@ NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
     return res;
 }
 
--(NSDictionary*)sortedContactsWithKeys:(NSArray *)searchKeys
+-(NSDictionary*)getSortedContactsWithKeys:(NSArray *)searchKeys
 {
-    NSArray * sorted = [self sortedContacts:searchKeys];
+    NSArray * sorted = [self getSortedContacts:searchKeys];
     NSMutableDictionary * res = [NSMutableDictionary dictionary];
     for(int i = 0;i < [sorted count];i++)
     {
-        NSString * str = [[sorted objectAtIndex:i] objectForKey:@"name"];
+        NSDictionary * item = [sorted objectAtIndex:i];
+        NSString * str = [item objectForKey:@"name"];
         char c = ' ';
         if([str length] > 0)
             c = pinyinFirstLetter([str characterAtIndex:0]);
@@ -388,7 +418,7 @@ NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
             array = [NSMutableArray array];
             [res setObject:array forKey:key];
         }
-        [array addObject:str];
+        [array addObject:item];
     }
     return res;
 }
