@@ -215,7 +215,7 @@ static ZCAddressBook *instance = 0;
         
         //读取照片
         NSData *image = (NSData*)ABPersonCopyImageData(person);
-        [dicInfoLocal setObject:[UIImage imageWithData:image] forKey:@"image"];
+        [dicInfoLocal setObject:image forKey:@"image"];
         [self.dataArray addObject:dicInfoLocal];//
     }
     CFRelease(results);//new
