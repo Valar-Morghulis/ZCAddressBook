@@ -410,7 +410,12 @@ NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
         NSString * str = [item objectForKey:@"name"];
         char c = ' ';
         if([str length] > 0)
-            c = pinyinFirstLetter([str characterAtIndex:0]);
+        {
+            c = toupper([str characterAtIndex:0]);
+            if(!isprint(c))
+                c = pinyinFirstLetter([str characterAtIndex:0]);
+        }
+        c = toupper(c);//转为大写
         NSString * key = [NSString stringWithFormat:@"%c",c];
         NSMutableArray * array = [res objectForKey:key];
         if(!array)
