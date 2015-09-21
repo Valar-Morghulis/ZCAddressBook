@@ -384,11 +384,18 @@ NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
     int res = NSOrderedAscending;
     if(a && [a length] > 0)
     {
-        char ac = pinyinFirstLetter([a characterAtIndex:0]);
+        char ac = toupper([a characterAtIndex:0]);
+        if(!isprint(ac))
+            ac = pinyinFirstLetter([a characterAtIndex:0]);
+        ac = toupper(ac);//转为大写
+        
         res = NSOrderedDescending;
         if(b && [b length] > 0)
         {
-            char bc = pinyinFirstLetter([b characterAtIndex:0]);
+            char bc = toupper([b characterAtIndex:0]);
+            if(!isprint(bc))
+                bc = pinyinFirstLetter([b characterAtIndex:0]);
+            bc = toupper(bc);//转为大写
             //
             if(ac > bc)
             {
