@@ -19,7 +19,7 @@ static ZCAddressBook *instance = 0;
     }
     return instance;
 }
-+(void)initialize
++(void)initABPropertyIDs
 {
     static dispatch_once_t t;
     dispatch_once(&t, ^(void){

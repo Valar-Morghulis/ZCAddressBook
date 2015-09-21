@@ -18,7 +18,7 @@ enum
 
 @interface ZCAddressBook : NSObject
 
-+(void)initialize;//初始化
++(void)initABPropertyIDs;//初始化
 //数据
 @property(nonatomic,retain)NSMutableArray*dataArray;
 + (ZCAddressBook*)instance;
@@ -31,7 +31,7 @@ enum
 
 #pragma mark 获取通讯录内容
 //
-//注意：为了使 searchKeys 有效，必须先 用 [ZCAddressBook initialize] 初始化所有ABPropertyID
+//注意：为了使 searchKeys 有效，必须先 用 [ZCAddressBook initABPropertyIDs] 初始化所有ABPropertyID
 
 -(NSMutableArray*)getContacts:(NSArray *)searchKeys;//searchKeys 要检索的内容，如kABPersonFirstNameProperty等
 
