@@ -172,8 +172,8 @@ static ZCAddressBook *instance = 0;
         [dicInfoLocal setObject:name forKey:@"name"];//名字，用于排序等
         for(int i = 0;i < [searchKeys count];i++)
         {
-            ABPropertyID pid = [[searchKeys objectAtIndex:i] intValue];
-            NSString * key = [NSString stringWithFormat:@"%d",pid];
+            id key = [searchKeys objectAtIndex:i];
+            ABPropertyID pid = [key intValue];
             id value = 0;
             if(pid == kABPersonBirthdayProperty)
             {
