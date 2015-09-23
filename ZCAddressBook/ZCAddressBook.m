@@ -147,7 +147,7 @@ static ZCAddressBook *instance = 0;
     self.dataArray = [NSMutableArray arrayWithCapacity:0];
     //取得本地通信录名柄
     ABAddressBookRef addressBook ;
-
+    
     __block BOOL isGranted = FALSE;
     if ([[UIDevice currentDevice].systemVersion floatValue] >= 6.0)
     {
@@ -158,7 +158,7 @@ static ZCAddressBook *instance = 0;
                                                  {
                                                      isGranted = granted;
                                                      dispatch_semaphore_signal(sema);
-        });
+                                                 });
         dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
         dispatch_release(sema);
     }
@@ -197,8 +197,8 @@ static ZCAddressBook *instance = 0;
             [dicInfoLocal setObject:name forKey:@"name"];//名字，用于排序等
             for(int i = 0;i < [searchKeys count];i++)
             {
-                ABPropertyID pid = [[searchKeys objectAtIndex:i] intValue];
-                NSString * key = [NSString stringWithFormat:@"%d",pid];
+                id key = [searchKeys objectAtIndex:i];
+                ABPropertyID pid = [key intValue];
                 id value = 0;
                 if(pid == kABPersonBirthdayProperty)
                 {
@@ -256,7 +256,7 @@ static ZCAddressBook *instance = 0;
         }
         CFRelease(results);//new
     }
-
+    
     if(addressBook) CFRelease(addressBook);
     return self.dataArray;
 }
