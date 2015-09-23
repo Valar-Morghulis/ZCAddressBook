@@ -24,20 +24,20 @@ enum
 + (ZCAddressBook*)instance;
 
 #pragma  mark  添加联系人
-- (BOOL)addContactName:(NSString*)name phoneNum:(NSString*)num withLabel:(NSString*)label;
+- (BOOL)addContactName:(NSString*)name phoneNum:(NSString*)num withLabel:(NSString*)label  refusedAccessBlock:(void (^)(void))refusedAccessBlock;
 
 #pragma mark 查找通讯录中是否有这个联系人
-- (ABHelperCheckExistResultType)existPhone:(NSString*)phoneNum;
+- (ABHelperCheckExistResultType)existPhone:(NSString*)phoneNum refusedAccessBlock:(void (^)(void))refusedAccessBlock;
 
 #pragma mark 获取通讯录内容
 //
 //注意：为了使 searchKeys 有效，必须先 用 [ZCAddressBook initABPropertyIDs] 初始化所有ABPropertyID
 
--(NSMutableArray*)getContacts:(NSArray *)searchKeys;//searchKeys 要检索的内容，如kABPersonFirstNameProperty等
+-(NSMutableArray*)getContacts:(NSArray *)searchKeys refusedAccessBlock:(void (^)(void))refusedAccessBlock;//searchKeys 要检索的内容，如kABPersonFirstNameProperty等
 
 #pragma mark 获取排序后的通讯录内容
--(NSArray*)getSortedContacts:(NSArray *)searchKeys;//searchKeys 要检索的内容
+-(NSArray*)getSortedContacts:(NSArray *)searchKeys refusedAccessBlock:(void (^)(void))refusedAccessBlock;//searchKeys 要检索的内容
 #pragma mark 获取排序后的通讯录内容
--(NSDictionary*)getSortedContactsWithKeys:(NSArray *)searchKeys;//searchKeys 要检索的内容
+-(NSDictionary*)getSortedContactsWithKeys:(NSArray *)searchKeys refusedAccessBlock:(void (^)(void))refusedAccessBlock;//searchKeys 要检索的内容
 
 @end

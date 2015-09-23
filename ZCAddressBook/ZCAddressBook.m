@@ -28,7 +28,8 @@ static ZCAddressBook *instance = 0;
 }
 #pragma  mark 添加联系人
 // 添加联系人（联系人名称、号码、号码备注标签）
-- (BOOL)addContactName:(NSString*)name phoneNum:(NSString*)num withLabel:(NSString*)label{
+- (BOOL)addContactName:(NSString*)name phoneNum:(NSString*)num withLabel:(NSString*)label refusedAccessBlock:(void (^)(void))refusedAccessBlock
+{
     // 创建一条空的联系人
     ABRecordRef record = ABPersonCreate();
     CFErrorRef error;
@@ -40,6 +41,8 @@ static ZCAddressBook *instance = 0;
     ABRecordSetValue(record, kABPersonPhoneProperty, multi, &error);
     ABAddressBookRef addressBook = nil;
     // 如果为iOS6以上系统，需要等待用户确认是否允许访问通讯录。
+    
+    __block BOOL isGranted = TRUE;
     if ([[UIDevice currentDevice].systemVersion floatValue] >= 6.0)
     {
         addressBook = ABAddressBookCreateWithOptions(NULL, NULL);
@@ -47,6 +50,7 @@ static ZCAddressBook *instance = 0;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
         ABAddressBookRequestAccessWithCompletion(addressBook, ^(bool granted, CFErrorRef error)
                                                  {
+                                                     isGranted = isGranted;
                                                      dispatch_semaphore_signal(sema);
                                                  });
         dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
@@ -56,81 +60,95 @@ static ZCAddressBook *instance = 0;
     {
         addressBook = ABAddressBookCreate();
     }
-    // 将新建联系人记录添加如通讯录中
-    BOOL success = ABAddressBookAddRecord(addressBook, record, &error);
-    if (!success)
+    BOOL success = FALSE;
+    if(!isGranted && refusedAccessBlock)
     {
-        return NO;
-    }else{
-        // 如果添加记录成功，保存更新到通讯录数据库中
-        success = ABAddressBookSave(addressBook, &error);
-        CFRelease(record);
-        CFRelease(addressBook);
-        return success;
-    }
-}
-#pragma  mark 指定号码是否已经存在
-- (ABHelperCheckExistResultType)existPhone:(NSString*)phoneNum
-{
-    ABAddressBookRef addressBook = nil;
-    if ([[UIDevice currentDevice].systemVersion floatValue] >= 6.0)
-    {
-        addressBook = ABAddressBookCreateWithOptions(NULL, NULL);
-        //等待同意后向下执行
-        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-        ABAddressBookRequestAccessWithCompletion(addressBook, ^(bool granted, CFErrorRef error)
-                                                 {
-                                                     dispatch_semaphore_signal(sema);
-                                                 });
-        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
-        dispatch_release(sema);
+        refusedAccessBlock();//
     }
     else
     {
-        addressBook = ABAddressBookCreate();
-    }
-    CFArrayRef records;
-    if (addressBook)
-    {
-        
-        // 获取通讯录中全部联系人
-        records = ABAddressBookCopyArrayOfAllPeople(addressBook);
-    }
-    else
-    {
-        
-#ifdef DEBUG        NSLog(@"can not connect to address book");
-#endif
-        return ABHelperCanNotConncetToAddressBook;
-    }
-    // 遍历全部联系人，检查是否存在指定号码
-    for (int i=0; i<CFArrayGetCount(records); i++)
-    {
-        ABRecordRef record = CFArrayGetValueAtIndex(records, i);
-        CFTypeRef items = ABRecordCopyValue(record, kABPersonPhoneProperty);
-        CFArrayRef phoneNums = ABMultiValueCopyArrayOfAllValues(items);
-        if (phoneNums)
+        // 将新建联系人记录添加如通讯录中
+        success = ABAddressBookAddRecord(addressBook, record, &error);
+        if (success)
         {
-            for (int j=0; j<CFArrayGetCount(phoneNums); j++)
-            {
-                NSString *phone = (NSString*)CFArrayGetValueAtIndex(phoneNums, j);
-                if ([phone isEqualToString:phoneNum])
-                {
-                    return ABHelperExistSpecificContact;
-                }
-            }
+            // 如果添加记录成功，保存更新到通讯录数据库中
+            success = ABAddressBookSave(addressBook, &error);
         }
     }
-    CFRelease(addressBook);
-    return ABHelperNotExistSpecificContact;
+    
+    if(record) CFRelease(record);
+    if(addressBook) CFRelease(addressBook);
+    return success;
+}
+#pragma  mark 指定号码是否已经存在
+- (ABHelperCheckExistResultType)existPhone:(NSString*)phoneNum refusedAccessBlock:(void (^)(void))refusedAccessBlock
+{
+    ABAddressBookRef addressBook = nil;
+    __block BOOL isGranted = TRUE;
+    ABHelperCheckExistResultType result = ABHelperCanNotConncetToAddressBook;
+    //
+    if ([[UIDevice currentDevice].systemVersion floatValue] >= 6.0)
+    {
+        addressBook = ABAddressBookCreateWithOptions(NULL, NULL);
+        //等待同意后向下执行
+        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+        ABAddressBookRequestAccessWithCompletion(addressBook, ^(bool granted, CFErrorRef error)
+                                                 {
+                                                     isGranted = granted;
+                                                     dispatch_semaphore_signal(sema);
+                                                 });
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+        dispatch_release(sema);
+    }
+    else
+    {
+        addressBook = ABAddressBookCreate();
+    }
+    if(!isGranted && refusedAccessBlock)
+    {
+        refusedAccessBlock();
+    }
+    else
+    {
+        result = ABHelperNotExistSpecificContact;//
+        
+        CFArrayRef records = ABAddressBookCopyArrayOfAllPeople(addressBook);
+        // 遍历全部联系人，检查是否存在指定号码
+        for (int i=0; i<CFArrayGetCount(records); i++)
+        {
+            ABRecordRef record = CFArrayGetValueAtIndex(records, i);
+            CFTypeRef items = ABRecordCopyValue(record, kABPersonPhoneProperty);
+            CFArrayRef phoneNums = ABMultiValueCopyArrayOfAllValues(items);
+            if (phoneNums)
+            {
+                for (int j=0; j<CFArrayGetCount(phoneNums); j++)
+                {
+                    NSString *phone = (NSString*)CFArrayGetValueAtIndex(phoneNums, j);
+                    if ([phone isEqualToString:phoneNum])
+                    {
+                        result = ABHelperExistSpecificContact;
+                        break;
+                    }
+                }//for
+            }//fi
+            if(result == ABHelperExistSpecificContact)//已经找到
+            {
+                break;
+            }
+        }//for
+    }
+    
+    if(addressBook) CFRelease(addressBook);
+    return result;
 }
 #pragma mark 获取通讯录内容
--(NSMutableArray*)getContacts:(NSArray *)searchKeys
+-(NSMutableArray*)getContacts:(NSArray *)searchKeys refusedAccessBlock:(void (^)(void))refusedAccessBlock
 {
     self.dataArray = [NSMutableArray arrayWithCapacity:0];
     //取得本地通信录名柄
     ABAddressBookRef addressBook ;
-    
+
+    __block BOOL isGranted = FALSE;
     if ([[UIDevice currentDevice].systemVersion floatValue] >= 6.0)
     {
         addressBook = ABAddressBookCreateWithOptions(NULL, NULL);
@@ -138,6 +156,7 @@ static ZCAddressBook *instance = 0;
         dispatch_semaphore_t sema = dispatch_semaphore_create(0);
         ABAddressBookRequestAccessWithCompletion(addressBook, ^(bool granted, CFErrorRef error)
                                                  {
+                                                     isGranted = granted;
                                                      dispatch_semaphore_signal(sema);
         });
         dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
@@ -148,89 +167,97 @@ static ZCAddressBook *instance = 0;
         addressBook = ABAddressBookCreate();
     }
     
-    //取得本地所有联系人记录
-    CFArrayRef results = ABAddressBookCopyArrayOfAllPeople(addressBook);
-    for(int i = 0; i < CFArrayGetCount(results); i++)
+    if(!isGranted && refusedAccessBlock)
     {
-        NSMutableDictionary *dicInfoLocal = [NSMutableDictionary dictionaryWithCapacity:0];
-        ABRecordRef person = CFArrayGetValueAtIndex(results, i);
-        //姓名
-        NSString * name = @"";
-        //读取firstName
-        NSString *firtname = (NSString*)ABRecordCopyValue(person, kABPersonFirstNameProperty);
-        if(firtname != nil)
-            name = [NSString stringWithFormat:@"%@%@",firtname,name];
-        //读取middlename
-        NSString *middlename = (NSString*)ABRecordCopyValue(person, kABPersonMiddleNameProperty);
-        if(middlename != nil)
-            name = [NSString stringWithFormat:@"%@%@",middlename,name];
-        //读取lastname
-        NSString *lastname = (NSString*)ABRecordCopyValue(person, kABPersonLastNameProperty);
-        if(lastname != nil)
-             name = [NSString stringWithFormat:@"%@%@",lastname,name];
-       
-        [dicInfoLocal setObject:name forKey:@"name"];//名字，用于排序等
-        for(int i = 0;i < [searchKeys count];i++)
-        {
-            ABPropertyID pid = [[searchKeys objectAtIndex:i] intValue];
-            NSString * key = [NSString stringWithFormat:@"%d",pid];
-            id value = 0;
-            if(pid == kABPersonBirthdayProperty)
-            {
-                value = (NSDate*)ABRecordCopyValue(person, kABPersonBirthdayProperty);
-            }
-            else if (pid == kABPersonKindProperty)
-            {
-                value = (NSNumber *)ABRecordCopyValue(person, kABPersonKindProperty);
-            }
-            else if (pid == kABPersonEmailProperty)
-            {
-                value = [self getEmails:person];
-            }
-            else if (pid == kABPersonAddressProperty)
-            {
-                value = [self getAddresses:person];
-            }
-            else if (pid == kABPersonDateProperty || pid == kABPersonCreationDateProperty || pid == kABPersonModificationDateProperty)
-            {
-                value = [self getDates:person];
-            }
-            else if (pid == kABPersonInstantMessageProperty)
-            {
-                value = [self getIMs:person];
-            }
-            else if (pid == kABPersonPhoneProperty)
-            {
-                value = [self getPhones:person];
-            }
-            else if (pid == kABPersonURLProperty)
-            {
-                value = [self getURLs:person];
-            }
-            else if (pid == kABPersonRelatedNamesProperty)
-            {
-                value = [self getRelatedNames:person];
-            }
-            else
-            {
-                value = (NSString *)ABRecordCopyValue(person, pid);
-            }
-            if(value)
-            {
-                [dicInfoLocal setObject:value forKey:key];
-            }
-        }//for
-        
-        //读取照片
-        NSData *image = (NSData*)ABPersonCopyImageData(person);
-        if(image)
-        {
-            [dicInfoLocal setObject:image forKey:@"image"];
-        }
-        [self.dataArray addObject:dicInfoLocal];//
+        refusedAccessBlock();
     }
-    CFRelease(results);//new
-    CFRelease(addressBook);//new
+    else
+    {
+        //取得本地所有联系人记录
+        CFArrayRef results = ABAddressBookCopyArrayOfAllPeople(addressBook);
+        for(int i = 0; i < CFArrayGetCount(results); i++)
+        {
+            NSMutableDictionary *dicInfoLocal = [NSMutableDictionary dictionaryWithCapacity:0];
+            ABRecordRef person = CFArrayGetValueAtIndex(results, i);
+            //姓名
+            NSString * name = @"";
+            //读取firstName
+            NSString *firtname = (NSString*)ABRecordCopyValue(person, kABPersonFirstNameProperty);
+            if(firtname != nil)
+                name = [NSString stringWithFormat:@"%@%@",firtname,name];
+            //读取middlename
+            NSString *middlename = (NSString*)ABRecordCopyValue(person, kABPersonMiddleNameProperty);
+            if(middlename != nil)
+                name = [NSString stringWithFormat:@"%@%@",middlename,name];
+            //读取lastname
+            NSString *lastname = (NSString*)ABRecordCopyValue(person, kABPersonLastNameProperty);
+            if(lastname != nil)
+                name = [NSString stringWithFormat:@"%@%@",lastname,name];
+            
+            [dicInfoLocal setObject:name forKey:@"name"];//名字，用于排序等
+            for(int i = 0;i < [searchKeys count];i++)
+            {
+                ABPropertyID pid = [[searchKeys objectAtIndex:i] intValue];
+                NSString * key = [NSString stringWithFormat:@"%d",pid];
+                id value = 0;
+                if(pid == kABPersonBirthdayProperty)
+                {
+                    value = (NSDate*)ABRecordCopyValue(person, kABPersonBirthdayProperty);
+                }
+                else if (pid == kABPersonKindProperty)
+                {
+                    value = (NSNumber *)ABRecordCopyValue(person, kABPersonKindProperty);
+                }
+                else if (pid == kABPersonEmailProperty)
+                {
+                    value = [self getEmails:person];
+                }
+                else if (pid == kABPersonAddressProperty)
+                {
+                    value = [self getAddresses:person];
+                }
+                else if (pid == kABPersonDateProperty || pid == kABPersonCreationDateProperty || pid == kABPersonModificationDateProperty)
+                {
+                    value = [self getDates:person];
+                }
+                else if (pid == kABPersonInstantMessageProperty)
+                {
+                    value = [self getIMs:person];
+                }
+                else if (pid == kABPersonPhoneProperty)
+                {
+                    value = [self getPhones:person];
+                }
+                else if (pid == kABPersonURLProperty)
+                {
+                    value = [self getURLs:person];
+                }
+                else if (pid == kABPersonRelatedNamesProperty)
+                {
+                    value = [self getRelatedNames:person];
+                }
+                else
+                {
+                    value = (NSString *)ABRecordCopyValue(person, pid);
+                }
+                if(value)
+                {
+                    [dicInfoLocal setObject:value forKey:key];
+                }
+            }//for
+            
+            //读取照片
+            NSData *image = (NSData*)ABPersonCopyImageData(person);
+            if(image)
+            {
+                [dicInfoLocal setObject:image forKey:@"image"];
+            }
+            [self.dataArray addObject:dicInfoLocal];//
+        }
+        CFRelease(results);//new
+    }
+
+    if(addressBook) CFRelease(addressBook);
     return self.dataArray;
 }
 
@@ -370,9 +397,9 @@ static ZCAddressBook *instance = 0;
 }
 
 
--(NSArray*)getSortedContacts:(NSArray *)searchKeys
+-(NSArray*)getSortedContacts:(NSArray *)searchKeys refusedAccessBlock:(void (^)(void))refusedAccessBlock
 {
-    if(!self.dataArray) [self getContacts:searchKeys];
+    if(!self.dataArray) [self getContacts:searchKeys refusedAccessBlock:refusedAccessBlock];
     NSArray*array =  [self.dataArray sortedArrayUsingFunction:cmp context:NULL];
     return array;
     
@@ -407,9 +434,9 @@ NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
     return res;
 }
 
--(NSDictionary*)getSortedContactsWithKeys:(NSArray *)searchKeys
+-(NSDictionary*)getSortedContactsWithKeys:(NSArray *)searchKeys refusedAccessBlock:(void (^)(void))refusedAccessBlock
 {
-    NSArray * sorted = [self getSortedContacts:searchKeys];
+    NSArray * sorted = [self getSortedContacts:searchKeys refusedAccessBlock:refusedAccessBlock];
     NSMutableDictionary * res = [NSMutableDictionary dictionary];
     for(int i = 0;i < [sorted count];i++)
     {
