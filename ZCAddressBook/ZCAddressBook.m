@@ -411,7 +411,7 @@ NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
     int res = NSOrderedAscending;
     if(a && [a length] > 0)
     {
-        char ac = toupper([a characterAtIndex:0]);
+        int ac = [a characterAtIndex:0];
         if(!isalpha(ac))
             ac = pinyinFirstLetter([a characterAtIndex:0]);
         ac = toupper(ac);//转为大写
@@ -419,7 +419,7 @@ NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
         res = NSOrderedDescending;
         if(b && [b length] > 0)
         {
-            char bc = toupper([b characterAtIndex:0]);
+            int bc = [b characterAtIndex:0];
             if(!isalpha(bc))
                 bc = pinyinFirstLetter([b characterAtIndex:0]);
             bc = toupper(bc);//转为大写
@@ -442,10 +442,10 @@ NSInteger cmp(NSDictionary * first, NSDictionary* second, void * p)
     {
         NSDictionary * item = [sorted objectAtIndex:i];
         NSString * str = [item objectForKey:@"name"];
-        char c = ' ';
+        int c = ' ';
         if([str length] > 0)
         {
-            c = toupper([str characterAtIndex:0]);
+            c = [str characterAtIndex:0];
             if(!isalpha(c))
                 c = pinyinFirstLetter([str characterAtIndex:0]);
         }
