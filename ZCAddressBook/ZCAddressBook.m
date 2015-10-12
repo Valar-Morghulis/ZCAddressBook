@@ -399,7 +399,7 @@ static ZCAddressBook *instance = 0;
 
 -(NSArray*)getSortedContacts:(NSArray *)searchKeys refusedAccessBlock:(void (^)(void))refusedAccessBlock
 {
-    if(!self.dataArray) [self getContacts:searchKeys refusedAccessBlock:refusedAccessBlock];
+    [self getContacts:searchKeys refusedAccessBlock:refusedAccessBlock];
     NSArray*array =  [self.dataArray sortedArrayUsingFunction:cmp context:NULL];
     return array;
     
